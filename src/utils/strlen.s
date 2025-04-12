@@ -1,17 +1,19 @@
 ; src/cli/strlen.s
+; note: can be improved by using SIMD
+; note: problems with not null terminated strings
 global utils_strlen
 
 section .text
 
 ; counts chars of an string
 utils_strlen:
-  xor rcx, rcx
+  xor rax, rax
 
 .loop:
-  cmp byte [rdi +rcx], 0
-  je .end_loop
-  inc rcx
+  cmp byte [rdi + rax], 0
+  je .return
+  inc rax
   jmp .loop
 
-.end_loop:
+.return:
   ret

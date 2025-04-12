@@ -1,51 +1,65 @@
-; src/utils/itoa.s
 global utils_itoa
 
 section .text
-  extern err_nan
 
-; converts unsigned 64-bit integer to equivalent ASCII
+; Converts unsigned 64-bit integer n (in rdi) to ASCII string in buffer buf (rsi).
+; sz (rdx) is the size of the buffer buf.
+; Returns pointer to the beginning of the written string in buf (in rax),
+; or NULL (0) if the buffer is too small.
 utils_itoa:
-  ; reserves 32 bytes of stack memory
-  push rbp
-  mov rbp, rsp
-  sub rsp, 32
+  ; Save callee-saved registers we use
+  push rbx
+  push r12
 
-  ; write null char in the buffer last byte
+  ; minimum buffer size is 2, for '0' and '\0'
   mov rbx, rdi
-  lea rsi, [rsp + 31]
-  mov BYTE [rsi], 0
-  dec rsi
+  cmp rdx, 2
+  jl .return_null
 
-  ; if it is just zero
-  cmp rbx, 0
-  jne .loop
-  mov BYTE [rsi], '0'
-  jmp .end_loop
+  ; setup buffer pointer p (r12) starting at the end
+  lea r12, [rsi + rdx - 1]
+  mov byte [r12], 0
+  dec r12
 
+  ; handle n == 0 separately
+  test rbx, rbx
+  jnz .loop
+  mov byte [r12], '0'
+  mov rax, r12
+  jmp .return
+
+; core conversion loop
 .loop:
-  ; extract digit
+  ; check for buffer overflow *before* writing next digit
+  cmp r12, rsi
+  jl .return_null
+
+  ; extract last digit (n % 10) and quotient (n / 10)
   xor rdx, rdx
   mov rax, rbx
   mov rcx, 10
   div rcx
 
-  ; converts digit to equivalent ASCII code number
-  add rdx, '0'
-  cmp dl, '9'
-  jg err_nan
-  mov BYTE [rsi], dl
-  dec rsi
+  ; convert remainder to ASCII, then store it
+  add dl, '0'
+  mov byte [r12], dl
 
-  ; next digit
+  ; update n for next iteration
+  dec r12
   mov rbx, rax
-  cmp rax, 0
-  je .end_loop
-  jmp .loop
 
-.end_loop:
-  mov rax, rsi
-  inc rax
-  mov rsp, rbp
-  pop rbp
+  ; check if quotient is zero
+  test rbx, rbx
+  jnz .loop
+
+  inc r12
+  mov rax, r12
+  jmp .return
+
+.return_null:
+  xor rax, rax
+
+.return:
+  pop r12
+  pop rbx
   ret

@@ -2,7 +2,9 @@
 global err_no_arg
 global err_invalid_port
 global err_nan
+global exit_err
 
+; error messages (subject to change)
 section .data
   _err_no_arg_msg db "Err: Port number required", 10
   _err_no_arg_len equ $ - _err_no_arg_msg
@@ -13,7 +15,8 @@ section .data
 
 section .text
 
-; error for not enough arguments
+; cli errors
+; if not enough arguments were given
 err_no_arg:
   mov rdi, 1 
   mov rsi, _err_no_arg_msg
@@ -22,7 +25,8 @@ err_no_arg:
   syscall
   jmp exit_err
 
-; error for invalid port given
+; server errors
+; if the port given is invalid
 err_invalid_port:
   mov rdi, 1
   mov rsi, _err_invalid_port_msg
@@ -31,6 +35,8 @@ err_invalid_port:
   syscall
   jmp exit_err
 
+; parsing errors
+; if read character is not a number
 err_nan:
     mov rdi, 1
     mov rsi, _err_nan_msg

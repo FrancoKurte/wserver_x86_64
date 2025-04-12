@@ -1,4 +1,7 @@
-; src/cli/cli.s
+%define ITOA_BUF_SIZE 32
+%define MIN_VALID_PORT 1
+%define MAX_VALID_PORT 65535
+
 global wsrv_cli
 
 section .text
@@ -9,36 +12,41 @@ section .text
   extern utils_itoa
 
 wsrv_cli:
-  ; argc, argv are saved in registers rax, rsi
-  ; port number must be argv[1]
-  mov rax, [rsp]
+  ; setup standard stack frame
+  push rbp
+  mov rbp, rsp
+  sub rsp, ITOA_BUF_SIZE
+
+  ; check argument count
+  mov rax, [rbp + 16]
   cmp rax, 2
-  jl err_no_arg
+  jl .err_no_arg_clear_stack
 
-  ; extract argv[1]
-  mov rsi, [rsp + 8]
-  mov rdi, [rsi + 8]
+  ; convert argv[1] to integer
+  mov rdi, [rbp + 32]
   call utils_atoi
-  
-  ; validate port range
-  cmp rax, 1
-  jl err_invalid_port
-  cmp rax, 65535
-  jg err_invalid_port
-  
-  ; !!! DEBUG ONLY !!!
-  ; write into stdout the port number after conversion
-  mov rdi, rax
-  call utils_itoa
-  mov rsi, rax
-  mov rdi, rax
-  call utils_strlen
-  mov rdi, 1
-  mov rdx, rcx
-  mov rax, 1
-  syscall
 
-  jmp exit_cli
+  ; validate port range (1 to 65535)
+  mov rbx, rax
+  cmp rbx, MIN_VALID_PORT
+  jl .err_invalid_port_clear_stack
+  cmp rbx, MAX_VALID_PORT
+  jg .err_invalid_port_clear_stack
 
-exit_cli:
+  jmp .exit
+
+.err_no_arg_clear_stack:
+  mov rsp, rbp
+  pop rbp
+  jmp err_no_arg
+
+.err_invalid_port_clear_stack:
+  mov rsp, rbp
+  pop rbp
+  jmp err_invalid_port
+
+.exit:
+  mov rsp, rbp
+  pop rbp
   ret
+

@@ -1,4 +1,5 @@
 ; src/utils/atoi.s
+; note: requires overflow management
 global utils_atoi
 
 section .text
@@ -14,7 +15,7 @@ utils_atoi:
   ; load character at a given index
   movzx rbx, byte [rdi + rcx]
   cmp rbx, 0
-  je .end_loop
+  je .return
 
   ; bound checking
   cmp rbx, '0'
@@ -32,5 +33,5 @@ utils_atoi:
   inc rcx
   jmp .loop
 
-.end_loop:
+.return:
   ret

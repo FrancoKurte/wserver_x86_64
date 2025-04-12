@@ -1,3 +1,4 @@
+; src/server/srv.s
 global wsrv_server
 
 section .data
@@ -10,6 +11,6 @@ wsrv_server:
 
 
 exit_server:
-  mov rdx, 1
+  mov rdi, 0
   mov rax, 60
   syscall
