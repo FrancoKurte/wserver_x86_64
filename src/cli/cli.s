@@ -41,6 +41,4 @@ wsrv_cli:
   jmp exit_cli
 
 exit_cli:
-  mov rdx, 0
-  mov rax, 60
-  syscall
+  ret

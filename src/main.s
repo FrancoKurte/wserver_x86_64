@@ -3,9 +3,7 @@ global _start
   extern wsrv_cli
 
 _start:
-  jmp wsrv_cli
-
-
+  call wsrv_cli
 
 exit:
   mov rdx, 1
