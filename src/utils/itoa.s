@@ -1,13 +1,13 @@
+; note: div is slow, replace by invariant multiplication
 global utils_itoa
 
 section .text
 
-; Converts unsigned 64-bit integer n (in rdi) to ASCII string in buffer buf (rsi).
+; converts unsigned 64-bit integer n (in rdi) to ASCII string in buffer buf (rsi).
 ; sz (rdx) is the size of the buffer buf.
-; Returns pointer to the beginning of the written string in buf (in rax),
-; or NULL (0) if the buffer is too small.
+; returns pointer to the beginning of the written string in buf (in rax),
 utils_itoa:
-  ; Save callee-saved registers we use
+  ; callee-saved registers
   push rbx
   push r12
 

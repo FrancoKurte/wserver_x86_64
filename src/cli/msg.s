@@ -1,8 +1,7 @@
 global cli_msg
 
 section .data
-
 section .text
 
-cli_msg:
+cli_msg: 
   ret

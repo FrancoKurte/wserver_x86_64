@@ -1,52 +1,53 @@
-%define ITOA_BUF_SIZE 32
-%define MIN_VALID_PORT 1
-%define MAX_VALID_PORT 65535
+%include "const.inc"
 
 global wsrv_cli
 
 section .text
+  extern wsrv_srv
   extern err_no_arg
-  extern err_invalid_port
+  extern err_inv_port
   extern utils_strlen
   extern utils_atoi
   extern utils_itoa
 
-wsrv_cli:
+wsrv_cli: 
   ; setup standard stack frame
   push rbp
   mov rbp, rsp
-  sub rsp, ITOA_BUF_SIZE
+  sub rsp, CLI_SFS
 
   ; check argument count
-  mov rax, [rbp + 16]
-  cmp rax, 2
-  jl .err_no_arg_clear_stack
+  mov rax, [rbp + ARGC + 8]
+  cmp rax, MIN_ARGC
+  jl .err_no_arg
 
   ; convert argv[1] to integer
-  mov rdi, [rbp + 32]
+  mov rdi, [rbp + ARGV + 8]
   call utils_atoi
 
-  ; validate port range (1 to 65535)
+  ; validate port range
   mov rbx, rax
   cmp rbx, MIN_VALID_PORT
-  jl .err_invalid_port_clear_stack
+  jl .err_inv_port
   cmp rbx, MAX_VALID_PORT
-  jg .err_invalid_port_clear_stack
+  jg .err_inv_port
+
+  ; initialize tcp server
+  call wsrv_srv
 
   jmp .exit
 
-.err_no_arg_clear_stack:
+.err_no_arg:
   mov rsp, rbp
   pop rbp
   jmp err_no_arg
 
-.err_invalid_port_clear_stack:
+.err_inv_port:
   mov rsp, rbp
   pop rbp
-  jmp err_invalid_port
+  jmp err_inv_port
 
 .exit:
   mov rsp, rbp
   pop rbp
   ret
-
