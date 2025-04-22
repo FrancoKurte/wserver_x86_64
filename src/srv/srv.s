@@ -1,105 +1,88 @@
-; src/srv/srv.s - Main server logic for wsrv (Phase 1)
-
 %include "const.inc"
 
 global wsrv_srv
+
 extern sock_init
 extern sock_bind
 extern sock_listen
 extern sock_accept
-extern utils_swape
+extern file_write
+extern file_close
 
 section .data
-    hello_msg db "Hello, World!", LINE_FEED, NULL
-    hello_len equ $ - hello_msg
+  _msg db "Hello World", NULL
+  _msg_len equ $ - _msg
 
 section .text
 
-; ──────────────────────────────────────────────────────────────
-; wsrv_srv - Initialize and run the TCP server
-; Input : rax = Port number (host byte order, 1–65535)
-; Output: None (runs forever or exits on error)
-; ──────────────────────────────────────────────────────────────
+; initializes the server
+; rdi <- port number
+; rsi <- ipv4 address
+; rax -> status code
 wsrv_srv:
-    push rbp
-    mov rbp, rsp
-    sub rsp, SRV_SFS                  ; Allocate stack space
+  push rbp
+  mov rbp, rsp
+  sub rsp, SIZE_SFM
 
-    ; Save port number
-    mov [rbp - 8], rax
+  ; save port number
+  mov word [rbp - SIZE_SFM + SIZE_PORT], di
 
-    ; ───── socket(AF_INET, SOCK_STREAM, 0)
-    call sock_init
-    cmp rax, -1
-    je .socket_error
-    mov [rbp - 16], rax              ; Save socket fd
+  ; socket initialization for ipv4 under tcp
+  call sock_init
 
-    ; ───── bind(fd, port)
-    mov rdi, [rbp - 16]              ; sockfd
-    mov rsi, [rbp - 8]               ; port
-    call sock_bind
-    cmp rax, -1
-    je .bind_error
+  ; save socket fd
+  mov qword [rbp - SIZE_SFM + SIZE_REG + SIZE_PORT], rax
 
-    ; ───── listen(sockfd, BACKLOG)
-    mov rdi, [rbp - 16]              ; sockfd
-    call sock_listen
-    cmp rax, -1
-    je .listen_error
+  ; binding to a socket address
+  mov rdi, [rbp - SIZE_SFM + SIZE_REG + SIZE_PORT]
+  mov rsi, [rbp - SIZE_SFM + SIZE_PORT]
+  call sock_bind
 
+  ; listen for connections
+  mov rdi, [rbp - SIZE_SFM + SIZE_REG + SIZE_PORT]
+  mov rsi, SOCK_BACKLOG
+  call sock_listen
+  test rax, rax
+  jnz .exit_err
+
+  mov rdi, [rbp - SIZE_SFM + SIZE_REG + SIZE_PORT]
+  call .accept_loop
+
+  jmp .exit
+
+; rdi <- socket fd (listening)
 .accept_loop:
-    ; ───── accept(sockfd, NULL, NULL)
-    mov rdi, [rbp - 16]              ; sockfd
-    call sock_accept
-    cmp rax, -1
-    je .accept_error
-    mov [rbp - 24], rax              ; client_fd
+  push rbp
+  mov rbp, rsp
+  sub rsp, SIZE_SFM ; 64B total (caller + callee)
 
-    ; ───── write(client_fd, hello_msg, hello_len)
-    mov rax, SYS_WRITE
-    mov rdi, [rbp - 24]              ; client_fd
-    mov rsi, hello_msg
-    mov rdx, hello_len
-    syscall
+.loop:
+  ; accept a connection
+  call sock_accept
+  mov qword [rbp - SIZE_REG], rax
+  
+  mov rax, SYS_write
+  mov rdi, [rbp - SIZE_REG]
+  mov rsi, _msg
+  mov rdx, _msg_len
+  syscall
 
-    ; ───── close(client_fd)
-    mov rax, SYS_CLOSE
-    mov rdi, [rbp - 24]
-    syscall
+  ; close client socket
+  call file_close
+  
+  jmp .accept_loop
+  mov rsp, rbp
+  pop rbp
+  ret 
 
-    jmp .accept_loop
+.exit_err:
+  mov rax, RET_ERR 
+  mov rsp, rbp
+  pop rbp
+  ret
 
-; ───── Error Handlers ─────
-
-.socket_error:
-    mov rax, SYS_EXIT
-    mov rdi, 1                       ; Exit code 1
-    syscall
-
-.bind_error:
-    mov rax, SYS_CLOSE
-    mov rdi, [rbp - 16]
-    syscall
-
-    mov rax, SYS_EXIT
-    mov rdi, 2
-    syscall
-
-.listen_error:
-    mov rax, SYS_CLOSE
-    mov rdi, [rbp - 16]
-    syscall
-
-    mov rax, SYS_EXIT
-    mov rdi, 3
-    syscall
-
-.accept_error:
-    mov rax, SYS_CLOSE
-    mov rdi, [rbp - 16]
-    syscall
-
-    mov rax, SYS_EXIT
-    mov rdi, 4
-    syscall
-
+.exit:
+  mov rax, RET_SUCC
+  mov rsp, rbp
+  pop rbp
+  ret

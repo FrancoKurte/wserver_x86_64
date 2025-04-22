@@ -1,4 +1,5 @@
 ; note: div is slow, replace by invariant multiplication
+%include "const.inc"
 global utils_itoa
 
 section .text
@@ -18,13 +19,13 @@ utils_itoa:
 
   ; setup buffer pointer p (r12) starting at the end
   lea r12, [rsi + rdx - 1]
-  mov byte [r12], 0
+  mov byte [r12], NULL
   dec r12
 
   ; handle n == 0 separately
   test rbx, rbx
   jnz .loop
-  mov byte [r12], '0'
+  mov byte [r12], ASCII_ZERO
   mov rax, r12
   jmp .return
 
@@ -41,7 +42,7 @@ utils_itoa:
   div rcx
 
   ; convert remainder to ASCII, then store it
-  add dl, '0'
+  add dl, ASCII_ZERO
   mov byte [r12], dl
 
   ; update n for next iteration

@@ -1,51 +1,54 @@
 %include "const.inc"
 
-global sock_init
+global sock_init 
 global sock_bind
 global sock_listen
 global sock_accept
-
+global sock_write
+global sock_close
+extern err_sock_init
+extern err_sock_bind
+extern err_sock_listen
+extern err_sock_write
+extern err_sock_close
+extern file_write
+extern file_close
 extern utils_swape
 
 section .text
 
 ; socket(2), initializes a tcp socket
+; rax -> socket fd, -1 on error
 sock_init:
-  push rbp
-  mov rbp, rsp
-  
-  ; socket(2) call
-  mov rax, SYS_SOCK
-  mov rdi, AF_INET
-  mov rsi, SOCK_STREAM
-  mov rdx, SOCK_DEFAULT_PROTO
+  mov rax, SYS_sock
+  mov rdi, SOCK_DOMAIN_AF_INET
+  mov rsi, SOCK_TYPE_STREAM
+  mov rdx, SOCK_PROTO_DEFAULT
   syscall
-
-  mov rsp, rbp
-  pop rbp
   ret
 
 ; bind(2), bind socket to IPv4:Port
 ; rdi <- socket fd
 ; rsi <- port number
-; rax -> status code
+; rax -> 0 on success, -1 on error
 sock_bind:
   push rbp
   mov rbp, rsp
   sub rsp, SOCKADDR_LEN
 
   ; setup of sockaddr_in(3type)
-  mov word [rbp - 16], AF_INET
+  mov word [rbp - REG_SIZE*2], SOCK_DOMAIN_AF_INET
   mov rax, rsi
   call utils_swape
-  mov [rbp - 14], ax
-  mov dword [rbp - 12], INADDR_ANY
-  mov dword [rbp - 8], NULL
-  
+
+  mov [rbp - REG_SIZE - 6], ax
+  mov dword [rbp - REG_SIZE - 4], SOCK_BIND_ADDR_ANY
+  mov dword [rbp - REG_SIZE], NULL
+
   ; bind(2) call
-  mov rax, SYS_SOCK_BIND
+  mov rax, SYS_bind
   mov rdi, rdi
-  lea rsi, [rbp - 16]
+  lea rsi, [rbp - REG_SIZE*2]
   mov rdx, SOCKADDR_LEN
   syscall
 
@@ -53,32 +56,33 @@ sock_bind:
   pop rbp
   ret
 
-; listen(2), mark socket as listening
+; listen(2), mark a socket as listening
 ; rdi <- socket fd
-; rax -> status code
+; rsi <- backlog, queue size
+; rax -> 0 for success, else -1
 sock_listen:
   push rbp
   mov rbp, rsp
 
   ; listen(2) call
-  mov rax, SYS_SOCK_LISTEN
+  mov rax, SYS_listen
   mov rdi, rdi
-  mov rsi, BACKLOG
+  mov rsi, rsi
   syscall
 
   mov rsp, rbp
   pop rbp
   ret
 
-; accept(2), accept a client connection
+; accept a client connection
 ; rdi <- socket fd
-; rax -> client fd
+; rax -> new socket fd, -1 on error
 sock_accept:
   push rbp
   mov rbp, rsp
 
   ; accept(2) call
-  mov rax, SYS_SOCK_ACCEPT
+  mov rax, SYS_accept
   mov rdi, rdi
   mov rsi, NULL
   mov rdx, NULL
@@ -87,3 +91,20 @@ sock_accept:
   mov rsp, rbp
   pop rbp
   ret
+
+; rdi <- socket fd
+; rsi <- buffer
+; rdx <- bytes to write
+sock_write:
+  call file_write
+  test rax, rax
+  jnz err_sock_write
+  ret
+
+; rdi <- socket fd
+sock_close:
+  call file_close
+  test rax, rax
+  jnz err_sock_close
+  ret
+

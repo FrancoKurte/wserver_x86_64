@@ -1,37 +1,41 @@
-; src/utils/atoi.s
-; note: requires overflow management
+; src/utils/atoi_less_regs.s
+%include "const.inc"
 global utils_atoi
 
 section .text
-  extern err_nan
+extern err_nan
 
 ; converts ASCII string to equivalent unsigned integer
+; rdi <- address of the null terminated string
+; rax -> converted unsigned integer
 utils_atoi:
-  ; stores string address
+  push rbp
+  mov rbp, rsp
+
   xor rax, rax
-  xor rcx, rcx
 
 .loop:
-  ; load character at a given index
-  movzx rbx, byte [rdi + rcx]
-  cmp rbx, 0
+  movzx rbx, byte [rdi]
+  cmp rbx, NULL
   je .return
 
-  ; bound checking
-  cmp rbx, '0'
-  jb err_nan
-  cmp rbx, '9'
-  ja err_nan
+  cmp rbx, ASCII_ZERO
+  jb .error
+  cmp rbx, ASCII_NINE
+  ja .error
 
-; result = (res*8 + res*2) + d 
-  sub rbx, '0'
-  mov rdx, rax
-  shl rax, 3
-  lea rax, [rax + rdx*2]
+  sub rbx, ASCII_ZERO
+  imul rax, rax, 10
   add rax, rbx
 
-  inc rcx
+  inc rdi
   jmp .loop
 
+.error:
+  mov rsp, rbp
+  pop rbp
+  jmp err_nan
+
 .return:
+  leave
   ret
